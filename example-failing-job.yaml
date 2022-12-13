@@ -1,0 +1,18 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: failingjob
+  namespace: elk
+spec:
+  concurrencyPolicy: Forbid
+  schedule: "* * * * *" # every 5 minutes, alternatively check: https://crontab.guru/#30_15-21_*_*_*
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: kubernetes-job-monitor-simple
+            image: guestros/kubernetes-job-monitor-simple:latest
+            imagePullPolicy: IfNotPresent
+            command: ["python", "-c", "import doesntexist"]
+          restartPolicy: OnFailure

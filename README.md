@@ -27,3 +27,11 @@ The Python job accesses kubernetes via kubectl, which has it's permissions from 
     - "Save data view to Kibana"
 5. Menu -> (Analytics) Discover
     - Enjoy. It should look similar to the image above
+
+## demo
+
+you can apply the example failing job to check it out
+
+`kubectl apply -f example-failing-job.yaml`
+
+![exampe failing job](example2.png)
