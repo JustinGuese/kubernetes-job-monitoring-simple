@@ -1,0 +1,106 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  labels:
+    app: kibana
+  name: kibana-pvc
+  namespace: elk
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+status: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: kibana-app
+  annotations:
+    backup.velero.io/backup-volumes: kibana-pv,kibana-pvc
+  name: kibana-app
+  namespace: elk
+spec:
+  strategy:
+    type: RollingUpdate
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kibana-app
+  template:
+    metadata:
+      labels:
+        app: kibana-app
+      annotations:
+        backup.velero.io/backup-volumes: kibana-pv,kibana-pvc
+    spec:
+      containers:
+        - env:
+            - name: ELASTICSEARCH_HOSTS
+              value: http://elasticsearch-service:9200
+            - name: ELASTICSEARCH_URL
+              value: http://elasticsearch-service:9200
+          image: docker.elastic.co/kibana/kibana:8.5.1
+          imagePullPolicy: Always
+          name: kibana-app
+          ports:
+            - containerPort: 5601
+              name: kibana
+              protocol: TCP
+          resources:
+            requests:
+              memory: "500Mi"
+              cpu: 128m
+            limits:
+              memory: "2Gi"
+              cpu: 2000m
+          volumeMounts:
+            - mountPath: /usr/share/kibana/data
+              name: kibana-pv
+      initContainers:
+        - name: init-chown-data
+          image: busybox
+          command: ["chown", "-R", "1000:1000", "/usr/share/kibana/data"]
+          volumeMounts:
+            - mountPath: /usr/share/kibana/data
+              name: kibana-pv
+      restartPolicy: Always
+      volumes:
+        - name: kibana-pv
+          persistentVolumeClaim:
+            claimName: kibana-pvc
+status: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: kibana
+  name: kibana-service
+  namespace: elk
+spec:
+  ports:
+    - name: "kibana-service"
+      port: 5601
+      targetPort: 5601
+  selector:
+    app: kibana-app
+---
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   labels:
+#     app: kibana
+#   name: kibana-service
+#   namespace: elk
+# spec:
+#   type: NodePort
+#   ports:
+#     - name: "kibana-service"
+#       port: 5601
+#       targetPort: 5601
+#       # nodePort: 30005
+#   selector:
+#     app: kibana-app

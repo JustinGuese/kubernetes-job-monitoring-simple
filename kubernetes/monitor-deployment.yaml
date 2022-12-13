@@ -1,0 +1,20 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: kubernetes-job-monitor-simple
+  namespace: elk
+spec:
+  schedule: "*/5 * * * *" # every 5 minutes, alternatively check: https://crontab.guru/#30_15-21_*_*_*
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: jobmonitor-role
+          containers:
+          - name: kubernetes-job-monitor-simple
+            image: guestros/kubernetes-job-monitor-simple:latest
+            imagePullPolicy: IfNotPresent
+            env:
+              - name: ELASTICSEARCH_URL
+                value: "http://elasticsearch-service:9200"
+          restartPolicy: OnFailure

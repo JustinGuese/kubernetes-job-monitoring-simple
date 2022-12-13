@@ -1,0 +1,101 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  labels:
+    app: elasticsearch
+  name: elasticsearch-pvc
+  namespace: elk
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+status: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: elasticsearch-app
+  annotations:
+    backup.velero.io/backup-volumes: elasticsearch-pv,elasticsearch-pvc
+  name: elasticsearch-app
+  namespace: elk
+spec:
+  strategy:
+    type: RollingUpdate
+  replicas: 1
+  selector:
+    matchLabels:
+      app: elasticsearch-app
+  template:
+    metadata:
+      labels:
+        app: elasticsearch-app
+      annotations:
+        backup.velero.io/backup-volumes: elasticsearch-pv,elasticsearch-pvc
+    spec:
+      containers:
+        - env:
+            - name: discovery.type
+              value: single-node
+            - name: xpack.security.enabled
+              value: "false"
+            - name: ES_JAVA_OPTS
+              value: "-Xms512m -Xmx512m"
+            - name: bootstrap.memory_lock
+              value: "true"
+          image: docker.elastic.co/elasticsearch/elasticsearch:8.5.1
+          imagePullPolicy: Always
+          name: elasticsearch-app
+          ports:
+            - containerPort: 9200
+              name: elasticsearch
+              protocol: TCP
+            - containerPort: 9300
+              name: transport
+              protocol: TCP
+          resources:
+            requests:
+              memory: "500Mi"
+              cpu: 128m
+            limits:
+              memory: "2Gi"
+              cpu: 2000m
+          volumeMounts:
+            - mountPath: /usr/share/elasticsearch/data
+              name: elasticsearch-pv
+      initContainers:
+        - name: init-sysctl
+          image: busybox
+          command: ["sysctl", "-w", "vm.max_map_count=262144"]
+          securityContext:
+            privileged: true
+        - name: init-chown-data
+          image: busybox
+          command: ["chown", "-R", "1000:1000", "/usr/share/elasticsearch/data"]
+          volumeMounts:
+            - mountPath: /usr/share/elasticsearch/data
+              name: elasticsearch-pv
+      restartPolicy: Always
+      volumes:
+        - name: elasticsearch-pv
+          persistentVolumeClaim:
+            claimName: elasticsearch-pvc
+status: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: elasticsearch
+  name: elasticsearch-service
+  namespace: elk
+spec:
+  ports:
+    - name: "elasticsearch-service"
+      port: 9200
+      targetPort: 9200
+  selector:
+    app: elasticsearch-app
