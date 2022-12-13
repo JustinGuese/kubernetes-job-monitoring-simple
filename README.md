@@ -1,4 +1,8 @@
 # kubernetes-job-monitoring-simple
+
+[![Docker Image CI](https://github.com/JustinGuese/kubernetes-job-monitoring-simple/actions/workflows/docker-image.yml/badge.svg)](https://github.com/JustinGuese/kubernetes-job-monitoring-simple/actions/workflows/docker-image.yml)
+
+
 a simple kubernetes job monitorer with elasticsearch + kibana as visualization
 
 it queries the failed jobs using python and kubectl, parses them, and writes them into elasticsearch, where they can easily be visualized using kibana
