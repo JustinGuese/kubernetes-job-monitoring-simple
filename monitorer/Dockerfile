@@ -4,4 +4,4 @@ RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/s
 RUN install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
 RUN pip install elasticsearch
 COPY ./src/monitor.py .
-CMD ["python", "monitorer.py"]
+CMD ["python", "monitor.py"]
