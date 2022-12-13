@@ -16,6 +16,8 @@ def convert(k8sresult):
     return results
 
 def convertAge(agestr):
+    if "s" in agestr:
+        return datetime.utcnow() - timedelta(seconds=int(agestr[:-1]))
     if "m" in agestr:
         return datetime.utcnow() - timedelta(minutes=int(agestr[:-1]))
     elif "h" in agestr:
