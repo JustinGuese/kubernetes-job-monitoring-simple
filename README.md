@@ -13,7 +13,8 @@ The Python job accesses kubernetes via kubectl, which has it's permissions from 
 
 ## installation
 
-1. `kubectl apply -f kubernetes/`
+1. `kubectl apply -f https://raw.githubusercontent.com/JustinGuese/kubernetes-job-monitoring-simple/main/all-in-one.yaml`
+    - OR `kubectl apply -f kubernetes/` if you checked this repo out locally
 2. wait until ressources in the "elk" namespace are installed
 3. access Kibana via port-forward or by uncommenting the NodePort in [kubernetes/kibana-deployment.yaml](kubernetes/kibana-deployment.yaml)
     - `kubectl port-forward -n elk svc/kibana-service 56011:5601` & visit http://localhost:56011

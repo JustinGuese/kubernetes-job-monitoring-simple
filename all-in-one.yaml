@@ -1,0 +1,256 @@
+kind: Namespace
+apiVersion: v1
+metadata:
+  name: elk
+  labels:
+    name: elk
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  labels:
+    app: elasticsearch
+  name: elasticsearch-pvc
+  namespace: elk
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+status: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: elasticsearch-app
+  annotations:
+    backup.velero.io/backup-volumes: elasticsearch-pv,elasticsearch-pvc
+  name: elasticsearch-app
+  namespace: elk
+spec:
+  strategy:
+    type: RollingUpdate
+  replicas: 1
+  selector:
+    matchLabels:
+      app: elasticsearch-app
+  template:
+    metadata:
+      labels:
+        app: elasticsearch-app
+      annotations:
+        backup.velero.io/backup-volumes: elasticsearch-pv,elasticsearch-pvc
+    spec:
+      containers:
+        - env:
+            - name: discovery.type
+              value: single-node
+            - name: xpack.security.enabled
+              value: "false"
+            - name: ES_JAVA_OPTS
+              value: "-Xms512m -Xmx512m"
+            - name: bootstrap.memory_lock
+              value: "true"
+          image: docker.elastic.co/elasticsearch/elasticsearch:8.5.1
+          imagePullPolicy: Always
+          name: elasticsearch-app
+          ports:
+            - containerPort: 9200
+              name: elasticsearch
+              protocol: TCP
+            - containerPort: 9300
+              name: transport
+              protocol: TCP
+          resources:
+            requests:
+              memory: "500Mi"
+              cpu: 128m
+            limits:
+              memory: "2Gi"
+              cpu: 2000m
+          volumeMounts:
+            - mountPath: /usr/share/elasticsearch/data
+              name: elasticsearch-pv
+      initContainers:
+        - name: init-sysctl
+          image: busybox
+          command: ["sysctl", "-w", "vm.max_map_count=262144"]
+          securityContext:
+            privileged: true
+        - name: init-chown-data
+          image: busybox
+          command: ["chown", "-R", "1000:1000", "/usr/share/elasticsearch/data"]
+          volumeMounts:
+            - mountPath: /usr/share/elasticsearch/data
+              name: elasticsearch-pv
+      restartPolicy: Always
+      volumes:
+        - name: elasticsearch-pv
+          persistentVolumeClaim:
+            claimName: elasticsearch-pvc
+status: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: elasticsearch
+  name: elasticsearch-service
+  namespace: elk
+spec:
+  ports:
+    - name: "elasticsearch-service"
+      port: 9200
+      targetPort: 9200
+  selector:
+    app: elasticsearch-app
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  labels:
+    app: kibana
+  name: kibana-pvc
+  namespace: elk
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+status: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: kibana-app
+  annotations:
+    backup.velero.io/backup-volumes: kibana-pv,kibana-pvc
+  name: kibana-app
+  namespace: elk
+spec:
+  strategy:
+    type: RollingUpdate
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kibana-app
+  template:
+    metadata:
+      labels:
+        app: kibana-app
+      annotations:
+        backup.velero.io/backup-volumes: kibana-pv,kibana-pvc
+    spec:
+      containers:
+        - env:
+            - name: ELASTICSEARCH_HOSTS
+              value: http://elasticsearch-service:9200
+            - name: ELASTICSEARCH_URL
+              value: http://elasticsearch-service:9200
+          image: docker.elastic.co/kibana/kibana:8.5.1
+          imagePullPolicy: Always
+          name: kibana-app
+          ports:
+            - containerPort: 5601
+              name: kibana
+              protocol: TCP
+          resources:
+            requests:
+              memory: "500Mi"
+              cpu: 128m
+            limits:
+              memory: "2Gi"
+              cpu: 2000m
+          volumeMounts:
+            - mountPath: /usr/share/kibana/data
+              name: kibana-pv
+      initContainers:
+        - name: init-chown-data
+          image: busybox
+          command: ["chown", "-R", "1000:1000", "/usr/share/kibana/data"]
+          volumeMounts:
+            - mountPath: /usr/share/kibana/data
+              name: kibana-pv
+      restartPolicy: Always
+      volumes:
+        - name: kibana-pv
+          persistentVolumeClaim:
+            claimName: kibana-pvc
+status: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: kibana
+  name: kibana-service
+  namespace: elk
+spec:
+  ports:
+    - name: "kibana-service"
+      port: 5601
+      targetPort: 5601
+  selector:
+    app: kibana-app
+---
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   labels:
+#     app: kibana
+#   name: kibana-service
+#   namespace: elk
+# spec:
+#   type: NodePort
+#   ports:
+#     - name: "kibana-service"
+#       port: 5601
+#       targetPort: 5601
+#       # nodePort: 30005
+#   selector:
+#     app: kibana-app
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: jobmonitor-role
+  namespace: elk
+subjects:
+- kind: ServiceAccount
+  name: jobmonitor-role
+  namespace: elk
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: jobmonitor-role
+  namespace: elk
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: kubernetes-job-monitor-simple
+  namespace: elk
+spec:
+  schedule: "*/5 * * * *" # every 5 minutes, alternatively check: https://crontab.guru/#30_15-21_*_*_*
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: jobmonitor-role
+          containers:
+          - name: kubernetes-job-monitor-simple
+            image: guestros/kubernetes-job-monitor-simple:latest
+            imagePullPolicy: IfNotPresent
+            env:
+              - name: ELASTICSEARCH_URL
+                value: "http://elasticsearch-service:9200"
+          restartPolicy: OnFailure
