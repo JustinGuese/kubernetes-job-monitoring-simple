@@ -37,7 +37,7 @@ else:
         errorObj = {
             "@timestamp": timestamp.isoformat(),
             "namespace": namespace,
-            "jobname": name[:-4],
+            "jobname": name.rsplit("-", 1)[0],
             "containername": name,
             "failed" : True,
             "logs" : logs
