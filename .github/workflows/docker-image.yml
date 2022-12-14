@@ -33,4 +33,4 @@ jobs:
         with:
           push: true
           tags: guestros/kubernetes-job-monitor-simple:pypy-latest
-          dockerfile: Dockerfile.pypy
+          file: Dockerfile.pypy
