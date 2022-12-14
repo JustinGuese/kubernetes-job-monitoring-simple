@@ -47,4 +47,6 @@ else:
             "failed" : True,
             "logs" : logs
         }
-        es.index(index="k8s-job-logs-%s" % datetime.utcnow().strftime("%Y-%m"), document=errorObj)
+        es.index(index="k8s-job-logs-%s" % datetime.utcnow().strftime("%Y-%m"), 
+                id = name,
+                document=errorObj)
