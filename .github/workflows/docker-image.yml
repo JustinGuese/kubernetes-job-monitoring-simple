@@ -22,8 +22,15 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       -
-        name: Build and push
+        name: Build and push alpine
         uses: docker/build-push-action@v3
         with:
           push: true
           tags: guestros/kubernetes-job-monitor-simple:latest
+      -
+        name: Build and push pypy
+        uses: docker/build-push-action@v3
+        with:
+          push: true
+          tags: guestros/kubernetes-job-monitor-simple:pypy-latest
+          dockerfile: Dockerfile.pypy
